@@ -1,6 +1,9 @@
 import os
+import inspect
 import yaml
+import json
 from easydict import EasyDict as edict
+
 
 class YamlParser(edict):
     """
@@ -17,12 +20,10 @@ class YamlParser(edict):
 
         super(YamlParser, self).__init__(cfg_dict)
 
-    
     def merge_from_file(self, config_file):
         with open(config_file, 'r') as fo:
             self.update(yaml.safe_load(fo.read()))
 
-    
     def merge_from_dict(self, config_dict):
         self.update(config_dict)
 
@@ -33,6 +34,10 @@ def get_config(config_file=None):
 
 if __name__ == "__main__":
     cfg = YamlParser(config_file="../configs/yolov3.yaml")
-    cfg.merge_from_file("../configs/deep_sort.yaml")
+    # cfg.merge_from_file("../configs/deep_sort.yaml")
+    print(cfg)
+    # import ipdb; ipdb.set_trace()
 
-    import ipdb; ipdb.set_trace()
+    # test_a = {'a': 1, 'b': {'c': 3}}
+    # j_a = json.dumps(test_a, indent=4)
+    # print(j_a)

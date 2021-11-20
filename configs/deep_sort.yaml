@@ -7,4 +7,19 @@ DEEPSORT:
   MAX_AGE: 70
   N_INIT: 3
   NN_BUDGET: 100
-  
+
+USE_MMDET: False
+USE_FASTREID: False
+
+USE_AICITYREID: True
+AICITYREID:
+  INPUT:
+    SIZE_TEST: [384, 384]
+  INPUTSIZE: 320
+  MODEL_PATH: "checkpoints/net_last.pth"
+  CONFIG_PATH: "configs/opts.yaml"
+  CFG: "configs/deep_sort.yaml"
+
+YOLOX:
+  EXP_NAME: 'yolox-x'
+  CKPT_FILE: '/dataset/mz/code/yoloxServer-vehicle/weights/yolox_x.pth'

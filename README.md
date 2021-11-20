@@ -1,3 +1,8 @@
+# update
+
+- YOLOX --> detector
+- Baidu AICityReID --> extractor
+
 # Deep Sort with PyTorch
 
 ![](demo/demo.gif)
@@ -10,11 +15,11 @@ Changes
 
 ## Latest Update(07-22)
 Changes
-- bug fix (Thanks @JieChen91 and @yingsen1 for bug reporting).  
-- using batch for feature extracting for each frame, which lead to a small speed up.  
+- bug fix (Thanks @JieChen91 and @yingsen1 for bug reporting).
+- using batch for feature extracting for each frame, which lead to a small speed up.
 - code improvement.
 
-Futher improvement direction  
+Futher improvement direction
 - Train detector on specific dataset rather than the official one.
 - Retrain REID model on pedestrain dataset for better performance.
 - Replace YOLOv3 detector with advanced ones.
@@ -23,7 +28,7 @@ Futher improvement direction
 
 
 ## Introduction
-This is an implement of MOT tracking algorithm deep sort. Deep sort is basicly the same with sort but added a CNN model to extract features in image of human part bounded by a detector. This CNN model is indeed a RE-ID model and the detector used in [PAPER](https://arxiv.org/abs/1703.07402) is FasterRCNN , and the original source code is [HERE](https://github.com/nwojke/deep_sort).  
+This is an implement of MOT tracking algorithm deep sort. Deep sort is basicly the same with sort but added a CNN model to extract features in image of human part bounded by a detector. This CNN model is indeed a RE-ID model and the detector used in [PAPER](https://arxiv.org/abs/1703.07402) is FasterRCNN , and the original source code is [HERE](https://github.com/nwojke/deep_sort).
 However in original code, the CNN model is implemented with tensorflow, which I'm not familier with. SO I re-implemented the CNN feature extraction model with PyTorch, and changed the CNN model a little bit. Also, I use **YOLOv3** to generate bboxes instead of FasterRCNN.
 
 ## Dependencies
@@ -67,7 +72,7 @@ cd deep_sort/deep/checkpoint
 # download ckpt.t7 from
 https://drive.google.com/drive/folders/1xhG0kRH1EX5B9_Iz8gQJb7UNnn_riXi6 to this folder
 cd ../../../
-```  
+```
 
 4. Compile nms module
 ```bash
@@ -117,7 +122,7 @@ usage: deepsort.py [-h]
                    [--display_width DISPLAY_WIDTH]
                    [--display_height DISPLAY_HEIGHT] [--save_path SAVE_PATH]
                    [--cpu] [--camera CAM]
-                   VIDEO_PATH         
+                   VIDEO_PATH
 
 # yolov3 + deepsort
 python deepsort.py [VIDEO_PATH]
@@ -137,17 +142,17 @@ python deepsort.py [VIDEO_PATH] --fastreid [--config_fastreid ./configs/fastreid
 # MMDetection + deepsort
 python deepsort.py [VIDEO_PATH] --mmdet [--config_mmdetection ./configs/mmdet.yaml]
 ```
-Use `--display` to enable display.  
+Use `--display` to enable display.
 Results will be saved to `./output/results.avi` and `./output/results.txt`.
 
-All files above can also be accessed from BaiduDisk!  
+All files above can also be accessed from BaiduDisk!
 linker：[BaiduDisk](https://pan.baidu.com/s/1YJ1iPpdFTlUyLFoonYvozg)
 passwd：fbuw
 
 ## Training the RE-ID model
-The original model used in paper is in original_model.py, and its parameter here [original_ckpt.t7](https://drive.google.com/drive/folders/1xhG0kRH1EX5B9_Iz8gQJb7UNnn_riXi6).  
+The original model used in paper is in original_model.py, and its parameter here [original_ckpt.t7](https://drive.google.com/drive/folders/1xhG0kRH1EX5B9_Iz8gQJb7UNnn_riXi6).
 
-To train the model, first you need download [Market1501](http://www.liangzheng.com.cn/Project/project_reid.html) dataset or [Mars](http://www.liangzheng.com.cn/Project/project_mars.html) dataset.  
+To train the model, first you need download [Market1501](http://www.liangzheng.com.cn/Project/project_reid.html) dataset or [Mars](http://www.liangzheng.com.cn/Project/project_mars.html) dataset.
 
 Then you can try [train.py](deep_sort/deep/train.py) to train your own parameter and evaluate it using [test.py](deep_sort/deep/test.py) and [evaluate.py](deep_sort/deep/evalute.py).
 ![train.jpg](deep_sort/deep/train.jpg)

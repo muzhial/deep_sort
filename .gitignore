@@ -11,3 +11,7 @@ build/
 *.avi
 *.so
 *.txt
+
+.DS_Store
+output
+*.pth

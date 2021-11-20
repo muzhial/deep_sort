@@ -112,20 +112,30 @@ class Frame(BaseJsonLogger):
         self.timestamp = timestamp
         self.bboxes = []
 
-    def add_bbox(self, bbox_id: int, top: int, left: int, width: int, height: int):
+    def add_bbox(self,
+                 bbox_id: int,
+                 top: int,
+                 left: int,
+                 width: int,
+                 height: int):
         bboxes_ids = [bbox.bbox_id for bbox in self.bboxes]
         if bbox_id not in bboxes_ids:
             self.bboxes.append(Bbox(bbox_id, top, left, width, height))
         else:
-            raise ValueError("Frame with id: {} already has a Bbox with id: {}".format(self.frame_id, bbox_id))
+            raise ValueError(
+                "Frame with id: {} already has a Bbox with id: {}".format(
+                self.frame_id, bbox_id))
 
-    def add_label_to_bbox(self, bbox_id: int, category: str, confidence: float):
+    def add_label_to_bbox(self,
+                          bbox_id: int,
+                          category: str,
+                          confidence: float):
         bboxes = {bbox.id: bbox for bbox in self.bboxes}
         if bbox_id in bboxes.keys():
             res = bboxes.get(bbox_id)
             res.add_label(category, confidence)
         else:
-            raise ValueError('the bbox with id: {} does not exists!'.format(bbox_id))
+            raise ValueError(f'the bbox with id: {bbox_id} does not exists')
 
 
 class BboxToJsonLogger(BaseJsonLogger):
@@ -174,8 +184,11 @@ class BboxToJsonLogger(BaseJsonLogger):
 
     def __init__(self, top_k_labels: int = 1):
         self.frames = {}
-        self.video_details = self.video_details = dict(frame_width=None, frame_height=None, frame_rate=None,
-                                                       video_name=None)
+        self.video_details = dict(
+            frame_width=None,
+            frame_height=None,
+            frame_rate=None,
+            video_name=None)
         self.top_k_labels = top_k_labels
         self.start_time = datetime.now()
 
@@ -290,7 +303,10 @@ class BboxToJsonLogger(BaseJsonLogger):
         else:
             raise ValueError("labels in frame_id: {}, bbox_id: {} is fulled".format(frame_id, bbox_id))
 
-    def add_video_details(self, frame_width: int = None, frame_height: int = None, frame_rate: int = None,
+    def add_video_details(self,
+                          frame_width: int = None,
+                          frame_height: int = None,
+                          frame_rate: int = None,
                           video_name: str = None):
         self.video_details['frame_width'] = frame_width
         self.video_details['frame_height'] = frame_height
