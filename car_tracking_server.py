@@ -82,6 +82,8 @@ class VideoTracker(object):
         if self.args.counting_line:
             self.count_up = {}
             self.count_down = {}
+            self.count_up_1 = {}
+            self.count_down_1 = {}
             self.pts = {}
             self.pre_count_up = {'car': 0, 'bus': 0, 'truck': 0}
             self.pre_count_down = {'car': 0, 'bus': 0, 'truck': 0}
@@ -96,6 +98,11 @@ class VideoTracker(object):
         self.frame_rate = int(self.vdo.get(cv2.CAP_PROP_FPS))
         self.record_interval = 3 * self.frame_rate
         self.idx_frame = 0
+
+        self.args.c_line_start = [self.im_width // 4, 0]
+        self.args.c_line_end = [self.im_width // 4, self.im_height]
+        self.args.c1_line_start = [self.im_width // 4 * 3, 0]
+        self.args.c1_line_end = [self.im_width // 4 * 3, self.im_height]
 
         video_details = {'frame_width': self.im_width,
                          'frame_height': self.im_height,
@@ -156,12 +163,12 @@ class VideoTracker(object):
                 self.logger.add_frame(frame_id=frame_id, timestamp=timestamp)
                 self.detection(frame=ori_im, frame_id=frame_id)
                 self.save_frame(ori_im)
-                idx_frame += 1
                 self.idx_frame += 1
                 # TODO: is ugly, to optimize later
                 if self.idx_frame % self.record_interval == 0:
                     item = self._get_record_per_interval()
                     record_items.append(item)
+            idx_frame += 1
             pbar.update()
         self.logger.json_output(self.json_output)
         res_csv = pd.DataFrame(columns=record_name, data=record_items)
@@ -244,35 +251,53 @@ class VideoTracker(object):
                 self.pts.setdefault(
                     identity,
                     deque(maxlen=self.args.deque_maxlen)).append(box_center)
-                cv2.line(img,
-                         self.args.c_line_start, self.args.c_line_end,
-                         (0, 255, 0), 2)
+                # cv2.line(img,
+                #          self.args.c_line_start, self.args.c_line_end,
+                #          (0, 255, 0), 2)
+                # cv2.line(img,
+                #          self.args.c1_line_start, self.args.c1_line_end,
+                #          (0, 255, 0), 2)
 
                 if len(self.pts[identity]) >= 2:
                     p1 = self.pts[identity][-2]
                     p0 = self.pts[identity][-1]
                     if self.intersect(p0, p1,
+                                      self.args.c1_line_start,
+                                      self.args.c1_line_end):
+                        if p1[0] > p0[0]:
+                            self.count_down_1.setdefault(category, 0)
+                            self.count_down_1[category] += 1
+                        else:
+                            self.count_up_1.setdefault(category, 0)
+                            self.count_up_1[category] += 1
+                    if self.intersect(p0, p1,
                                       self.args.c_line_start,
                                       self.args.c_line_end):
-                        if p1[1] > p0[1]:
+                        if p1[0] > p0[0]:
                             self.count_down.setdefault(category, 0)
                             self.count_down[category] += 1
+                            self.count_down[category] = max(
+                                self.count_down[category],
+                                self.count_down_1.get(category, 0))
                         else:
                             self.count_up.setdefault(category, 0)
                             self.count_up[category] += 1
+                            self.count_up[category] = max(
+                                self.count_up[category],
+                                self.count_up_1.get(category, 0))
                 count_down = sum(self.count_down.values())
                 count_up = sum(self.count_up.values())
                 cv2.putText(img,
-                            f'count_total: {count_up + count_down}',
-                            (self.im_width // 2, self.im_height // 5),
+                            f'total: {count_up + count_down}',
+                            (self.im_width // 2, 50),
                             cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
                 cv2.putText(img,
-                            f'count_down: {count_down}',
-                            (self.im_width // 2, self.im_height // 5 + 25),
+                            f'R: {count_down}',
+                            (self.im_width // 2, 75),
                             cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
                 cv2.putText(img,
-                            f'count_up: {count_up}',
-                            (self.im_width // 2, self.im_height // 5 + 50),
+                            f'L: {count_up}',
+                            (self.im_width // 2, 100),
                             cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
 
         return img
