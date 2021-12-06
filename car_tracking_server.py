@@ -15,6 +15,7 @@ import cv2
 import pandas as pd
 import argparse
 import torch
+from deep_sort.sort.iou_matching import iou_cost
 
 from detector import build_detector
 from deep_sort import build_tracker
@@ -43,7 +44,7 @@ def parse_args():
     parser.add_argument('--counting_line',
                         action='store_true',
                         default=False)
-    parser.add_argument('--deque_maxlen', type=int, default=10)
+    parser.add_argument('--deque_maxlen', type=int, default=5)
     parser.add_argument('--c_line_start', nargs='+', default=[470, 230])
     parser.add_argument('--c_line_end', nargs='+', default=[530, 400])
     args = parser.parse_args()
@@ -82,8 +83,18 @@ class VideoTracker(object):
         if self.args.counting_line:
             self.count_up = {}
             self.count_down = {}
+            self.count_up_0 = {}
+            self.count_down_0 = {}
             self.count_up_1 = {}
             self.count_down_1 = {}
+            self.count_up_0_sum = 0
+            self.count_down_0_sum = 0
+            self.count_up_1_sum = 0
+            self.count_down_1_sum = 0
+            self.up_0_identity = set()
+            self.down_0_identity = set()
+            self.up_1_identity = set()
+            self.down_1_identity = set()
             self.pts = {}
             self.pre_count_up = {'car': 0, 'bus': 0, 'truck': 0}
             self.pre_count_down = {'car': 0, 'bus': 0, 'truck': 0}
@@ -207,6 +218,12 @@ class VideoTracker(object):
             if len(outputs) > 0:
                 frame = self.draw_boxes(
                     img=frame, frame_id=frame_id, output=outputs)
+        # cv2.line(frame,
+        #          self.args.c_line_start, self.args.c_line_end,
+        #          (0, 255, 0), 2)
+        # cv2.line(frame,
+        #          self.args.c1_line_start, self.args.c1_line_end,
+        #          (0, 255, 0), 2)
 
     def draw_boxes(
         self,
@@ -235,7 +252,7 @@ class VideoTracker(object):
                                           category=category,
                                           confidence=0.73)
             color = compute_color_for_labels(identity)
-            label = '{}{:d}'.format("", identity)
+            label = '{} {:d}'.format(category, identity)
             t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1, 1)[0]
             cv2.rectangle(img, (x1, y1), (x2, y2), color, 1)
             cv2.rectangle(img,
@@ -247,60 +264,96 @@ class VideoTracker(object):
                         cv2.FONT_HERSHEY_PLAIN, 1, [255, 255, 255], 1)
 
             if self.args.counting_line:
-                box_center = (int((x1 + x2) / 2), int((y1 + y2) / 2))
                 self.pts.setdefault(
                     identity,
-                    deque(maxlen=self.args.deque_maxlen)).append(box_center)
-                # cv2.line(img,
-                #          self.args.c_line_start, self.args.c_line_end,
-                #          (0, 255, 0), 2)
-                # cv2.line(img,
-                #          self.args.c1_line_start, self.args.c1_line_end,
-                #          (0, 255, 0), 2)
+                    deque(maxlen=self.args.deque_maxlen))
+                box_center = (int((x1 + x2) / 2), int((y1 + y2) / 2),
+                              x1, y1, x2, y2)
+
+                if len(self.pts.get(identity, [])) != 0:
+                    iou_status = self.iou_filter(
+                        self.pts.get(identity)[-1][2:], box_center[2:])
+                    if iou_status:
+                        self.pts[identity].append(box_center)
+                else:
+                    self.pts[identity].append(box_center)
 
                 if len(self.pts[identity]) >= 2:
-                    p1 = self.pts[identity][-2]
-                    p0 = self.pts[identity][-1]
+                    p0 = self.pts[identity][-2][:2]
+                    p1 = self.pts[identity][-1][:2]
                     if self.intersect(p0, p1,
                                       self.args.c1_line_start,
                                       self.args.c1_line_end):
-                        if p1[0] > p0[0]:
+                        if p1[0] > p0[0] and identity not in self.down_1_identity:
                             self.count_down_1.setdefault(category, 0)
                             self.count_down_1[category] += 1
-                        else:
+                            self.down_1_identity.add(identity)
+                            self.count_down_1_sum += 1
+                        elif p1[0] <= p0[0] and identity not in self.up_1_identity:
                             self.count_up_1.setdefault(category, 0)
                             self.count_up_1[category] += 1
+                            self.up_1_identity.add(identity)
+                            self.count_up_1_sum += 1
                     if self.intersect(p0, p1,
                                       self.args.c_line_start,
                                       self.args.c_line_end):
-                        if p1[0] > p0[0]:
-                            self.count_down.setdefault(category, 0)
-                            self.count_down[category] += 1
-                            self.count_down[category] = max(
-                                self.count_down[category],
-                                self.count_down_1.get(category, 0))
-                        else:
-                            self.count_up.setdefault(category, 0)
-                            self.count_up[category] += 1
-                            self.count_up[category] = max(
-                                self.count_up[category],
-                                self.count_up_1.get(category, 0))
-                count_down = sum(self.count_down.values())
-                count_up = sum(self.count_up.values())
-                cv2.putText(img,
-                            f'total: {count_up + count_down}',
-                            (self.im_width // 2, 50),
-                            cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
-                cv2.putText(img,
-                            f'R: {count_down}',
-                            (self.im_width // 2, 75),
-                            cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
-                cv2.putText(img,
-                            f'L: {count_up}',
-                            (self.im_width // 2, 100),
-                            cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
+                        if p1[0] > p0[0] and identity not in self.down_0_identity:
+                            self.count_down_0.setdefault(category, 0)
+                            self.count_down_0[category] += 1
+                            self.down_0_identity.add(identity)
+                            self.count_down_0_sum += 1
+                        elif p1[0] <= p0[0] and identity not in self.up_0_identity:
+                            self.count_up_0.setdefault(category, 0)
+                            self.count_up_0[category] += 1
+                            self.up_0_identity.add(identity)
+                            self.count_up_0_sum += 1
+        for cat in ['car', 'bus', 'truck']:
+            self.count_down[cat] = max(self.count_down_0.get(cat, 0),
+                                       self.count_down_1.get(cat, 0))
+            self.count_up[cat] = max(self.count_up_0.get(cat, 0),
+                                     self.count_up_1.get(cat, 0))
+        # count_down = sum(self.count_down.values())
+        # count_up = sum(self.count_up.values())
+
+        count_down = max(self.count_down_0_sum, self.count_down_1_sum)
+        count_up = max(self.count_up_0_sum, self.count_up_1_sum)
+        cv2.putText(img,
+                    f'total: {count_up + count_down}',
+                    (self.im_width // 3, 50),
+                    cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
+        cv2.putText(img,
+                    f'R: {count_down}',
+                    (self.im_width // 3, 75),
+                    cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
+        cv2.putText(img,
+                    f'L: {count_up}',
+                    (self.im_width // 3, 100),
+                    cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
+        # cv2.putText(img,
+        #             f"car: {self.count_down['car'] + self.count_up['car']}",
+        #             (self.im_width // 3 + 150, 50),
+        #             cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
+        # cv2.putText(img,
+        #             f"bus: {self.count_down['bus'] + self.count_up['bus']}",
+        #             (self.im_width // 3 + 150, 75),
+        #             cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
+        # cv2.putText(img,
+        #             f"truck: {self.count_down['truck'] + self.count_up['truck']}",
+        #             (self.im_width // 3 + 150, 100),
+        #             cv2.FONT_HERSHEY_PLAIN, 2, [0, 255, 0], 2)
 
         return img
+
+    def iou_filter(self, box1, box2):
+        lx = max(box1[0], box2[0])
+        ly = max(box1[1], box2[1])
+        rx = min(box1[2], box2[2])
+        ry = min(box1[3], box2[3])
+        if rx <= lx or ry <= ly:
+            return False
+        else:
+            return True
+
 
     def save_frame(self, frame) -> None:
         if frame is not None:
